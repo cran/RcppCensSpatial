@@ -1,180 +1,17 @@
+// [[Rcpp::depends(RcppArmadillo, roptim, RcppProgress)]]
+
 #include <RcppArmadillo.h>
-// [[Rcpp::depends(RcppArmadillo)]]
-
 #include <roptim.h>
-// [[Rcpp::depends(roptim)]]
-
 #include <progress.hpp>
 #include <progress_bar.hpp>
-// [[Rcpp::depends(RcppProgress)]]
 
 using namespace Rcpp;
 using namespace arma;
 using namespace roptim;
 
+//R_NilValue == NULL
 
-// Generate random numbers from Truncated Multivariate Normal distribution N(0,R; (a,b))
-// ------------------------------------------------------------------------------------------------------------
-arma::mat rtnormal(arma::uword n, arma::vec mu, arma::mat Sigma, arma::vec a, arma::vec b, int burn, int lag){
-
-  arma::uword m = lag*n + burn;
-  arma::uword p = Sigma.n_cols;
-  arma::vec s = sqrt(Sigma.diag());
-  arma::mat R = Sigma%(1.0/(s * s.t()));
-  arma::mat Rinv = R.i();
-  arma::mat X(n,p,fill::zeros);
-
-  Rcpp::NumericVector l1 = Rcpp::wrap((a - mu)/s);
-  Rcpp::NumericVector u1 = Rcpp::wrap((b - mu)/s);
-  arma::vec pa = Rcpp::pnorm(l1,0,1,1,0);
-  arma::vec pb = Rcpp::pnorm(u1,0,1,1,0);
-  arma::vec x0 = randu<arma::vec>(p);
-  Rcpp::NumericVector x1 = Rcpp::wrap(pa + (pb - pa)%x0);
-  arma::colvec x = Rcpp::qnorm(x1,0,1,1,0);
-  arma::vec lower = as<arma::vec>(l1);
-  arma::vec upper = as<arma::vec>(u1);
-
-  arma::uvec q1 = find_nonfinite(x);
-  x.elem(q1) = lower.elem(q1);
-  q1 = find_nonfinite(x);
-  x.elem(q1) = upper.elem(q1);
-
-  umat minusj(p-1,p,fill::zeros);
-  for(uword j=0;j<p;j++){
-    uword k=0;
-    for(uword l=0;l<p;l++){
-      if(l!=j){
-        minusj(k,j) = l;
-        k++;
-      }
-    }
-  }
-  double delta, kap, mj, tj, lv, rv, xij;
-  arma::uvec pj; arma::rowvec a1; arma::vec xj;
-  arma::uword count = 1;
-  for(uword i=0;i<m;i++){
-    delta = as_scalar(x.t()*Rinv*x);
-    kap = -2.0*log(arma::randu<double>()) + delta;
-    for(uword j=0;j<p;j++){
-      pj = minusj.col(j);
-      xj = x(pj);
-      a1 = xj.t()*Rinv.rows(pj);
-      mj = -a1(j)/Rinv(j,j);
-      tj = sqrt(mj*mj + (kap-as_scalar(a1.cols(pj)*xj))/Rinv(j,j));
-      lv = std::max(lower(j),(mj-tj));
-      rv = std::min(upper(j),(mj+tj));
-      xij = lv + (rv - lv)*arma::randu<double>();
-      x(j) = xij;
-    }
-    if (i==(burn + count*lag - 1)){
-      X.row(count-1) = x.t();
-      count++;
-    }
-  }
-  X = X.t();
-  X = X.each_col()%s;
-  X = (X.each_col() + mu).t();
-  X.replace(arma::datum::inf,arma::datum::nan);
-  X.replace(-arma::datum::inf,arma::datum::nan);
-  return X;
-}
-
-// Compute moments from truncated multivariate Normal distribution
-// ------------------------------------------------------------------------------------------------------------
-List Nmoment(arma::vec mu, arma::mat Sigma, arma::vec lower, arma::vec upper, arma::uword n, int burn, int thinning){
-
-  uword p = mu.size();
-  uvec ind1 = unique(join_vert(find_finite(lower),find_finite(upper))); // Truncated variables
-  uvec ind2 = intersect(find_nonfinite(lower),find_nonfinite(upper));   // Non-truncated variables
-  uword lind = ind2.size();
-  arma::vec mean0(p); arma::mat var0(p,p); arma::mat mom20(p,p);
-
-  if (lind==p){ // Non-truncated variables
-    mean0 = mu; var0 = Sigma; mom20 = var0 + mean0*mean0.t();
-
-  } else {
-
-    if ((lind==0) & (p==1)){ // All variables are truncated: univariate case
-      double s11 = as_scalar(sqrt(Sigma));
-      double a, b;
-      if(lower.is_finite()){ a = as_scalar((lower - mu))/s11; } else { a = -1e12; }
-      if(upper.is_finite()){ b = as_scalar((upper - mu))/s11; } else { b = 1e12; }
-      double den = R::pnorm5(b,0.0,1.0,1,0) - R::pnorm5(a,0.0,1.0,1,0);
-      double pdfa = R::dnorm4(a,0.0,1.0,0);
-      double pdfb = R::dnorm4(b,0.0,1.0,0);
-      mean0(0) = as_scalar(mu) + s11*((pdfa - pdfb)/den);
-      var0(0,0) = as_scalar(Sigma)*(1 + (a*pdfa - b*pdfb)/den - pow((pdfa - pdfb)/den,2.0));
-      mom20(0,0) = var0(0,0) + mean0(0)*mean0(0);
-
-    } else {
-
-      if ((lind==0) & (p>1)){ //All variables are truncated: p-variate case
-        arma::mat gen = rtnormal(n,mu,Sigma,lower,upper,burn,thinning);
-        mean0 = (mean(gen,0)).t();
-        var0 = cov(gen);
-        mom20 = var0 + mean0*mean0.t();
-
-      } else {
-
-        if ((lind==(p-1)) & (p>1)){ // One variable is truncated: p-variate case
-          double s11 = as_scalar(sqrt(Sigma(ind1,ind1)));
-          double a, b;
-          if((lower(ind1)).is_finite()){ a = as_scalar((lower(ind1) - mu(ind1))/s11); } else { a = -1e12; }
-          if((upper(ind1)).is_finite()){ b = as_scalar((upper(ind1) - mu(ind1))/s11); } else { b = 1e12; }
-          double den = R::pnorm5(b,0.0,1.0,1,0) - R::pnorm5(a,0.0,1.0,1,0);
-          double pdfa = R::dnorm4(a,0.0,1.0,0);
-          double pdfb = R::dnorm4(b,0.0,1.0,0);
-          mean0(ind1) = mu(ind1) + s11*((pdfa - pdfb)/den);
-          mean0(ind2) = mu(ind2) + as_scalar((mean0(ind1) - mu(ind1))/Sigma(ind1,ind1))*Sigma(ind2,ind1);
-          var0(ind1,ind1) = Sigma(ind1,ind1)*(1.0 + (a*pdfa - b*pdfb)/den - pow((pdfa - pdfb)/den,2.0));
-          var0(ind2,ind2) = Sigma(ind2,ind2) - ((1.0 - as_scalar(var0(ind1,ind1)/Sigma(ind1,ind1)))/as_scalar(Sigma(ind1,ind1)))*Sigma(ind2,ind1)*Sigma(ind1,ind2);
-          var0(ind2,ind1) = as_scalar(var0(ind1,ind1)/Sigma(ind1,ind1))*Sigma(ind2,ind1);
-          var0(ind1,ind2) = (var0(ind2,ind1)).t();
-          mom20 = var0 + mean0*mean0.t();
-
-        } else {
-
-          if ((lind>0) & (lind<(p-1))){ // The number of truncated variables varies between 2 and p-1
-            arma::mat Iden = eye(ind1.size(),ind1.size());
-            arma::mat sigInv = Sigma(ind1,ind1).i();
-            arma::mat gen = rtnormal(n,mu(ind1),Sigma(ind1,ind1),lower(ind1),upper(ind1),burn,thinning);
-            mean0(ind1) = (mean(gen,0)).t();
-            mean0(ind2) = mu(ind2) + Sigma(ind2,ind1)*sigInv*(mean0(ind1) - mu(ind1));
-            var0(ind1,ind1) = cov(gen);
-            var0(ind2,ind2) = Sigma(ind2,ind2) - Sigma(ind2,ind1)*sigInv*(Iden - var0(ind1,ind1)*sigInv)*Sigma(ind1,ind2);
-            var0(ind2,ind1) = Sigma(ind2,ind1)*sigInv*var0(ind1,ind1);
-            var0(ind1,ind2) = (var0(ind2,ind1)).t();
-            mom20 = var0 + mean0*mean0.t();
-          }
-        }
-      }
-    }
-  }
-  List output;
-  output["EY"] = mean0;
-  output["EYY"] = 0.5*(mom20 + mom20.t());
-  output["VarY"] = 0.5*(var0 + var0.t());
-  return output;
-}
-
-
-// ALGORITHMS FOR GAUSSIAN SPATIAL MODEL
-
-arma::mat BesselK(arma::mat A, double ka){
-  Environment base("package:base");
-  Function besselk("besselK");
-  arma::mat BA = as<arma::mat>(besselk(A,ka));
-  //arma::uword p1 = A.n_rows;
-  //arma::mat BA(p1, p1, fill::zeros);
-  //for (uword i=0; i<p1; i++){
-  //  for (uword j=(i+1); j<p1; j++){
-  //    BA(i,j) = BA(j,i) = boost::math::cyl_bessel_k(ka,A(i,j));
-  //  }
-  //}
-  return BA;
-}
-
-// Functions to be minimized considering exponential, gaussian and power exponential spatial correlation
+// Functions to be minimized considering exponential, gaussian, matern, and power exponential spatial correlation
 // ------------------------------------------------------------------------------------------------------------
 // EXPONENTIAL
 class optimExp : public Functor {
@@ -247,6 +84,19 @@ class optimPExp : public Functor {
   }
 };
 // MATERN
+arma::mat BesselK(arma::mat A, double ka){
+  Environment base("package:base");
+  Function besselk("besselK");
+  arma::mat BA = as<arma::mat>(besselk(A,ka));
+  //arma::uword p1 = A.n_rows;
+  //arma::mat BA(p1, p1, fill::zeros);
+  //for (uword i=0; i<p1; i++){
+  //  for (uword j=(i+1); j<p1; j++){
+  //    BA(i,j) = BA(j,i) = boost::math::cyl_bessel_k(ka,A(i,j));
+  //  }
+  //}
+  return BA;
+}
 class optimMat : public Functor {
   private:
     const arma::mat A; // Distance matrix
@@ -355,7 +205,7 @@ arma::mat crossdist(arma::mat m1){
 // ------------------------------------------------------------------------------------------------------------
 arma::mat CorrSpatial(arma::mat dist, double phi, double kappa, String type){
   arma::uword p = dist.n_rows;
-  arma::mat R(p,p,fill::zeros);
+  arma::mat R(p, p, fill::zeros);
 
   if (type=="exponential"){
     R = exp(-dist/phi);
@@ -367,7 +217,8 @@ arma::mat CorrSpatial(arma::mat dist, double phi, double kappa, String type){
         R = exp(-pow(dist/phi,kappa));
       } else {
         if (type == "matern"){
-          arma::mat Abessel = dist/phi; Abessel.replace(0,1);
+          arma::mat Abessel = dist/phi;
+          Abessel.replace(0,1);
           R = (1.0/(pow(2.0,kappa-1.0)*tgamma(kappa)))*pow(dist/phi,kappa)%BesselK(Abessel,kappa);
           R.diag().ones();
         }
@@ -381,8 +232,8 @@ arma::mat CorrSpatial(arma::mat dist, double phi, double kappa, String type){
 // ------------------------------------------------------------------------------------------------------------
 // [[Rcpp::export]]
 List varianceMat(double phi, double tau2, double sigma2, double kappa, arma::mat dist, String type){
-  arma::mat Iden = eye(dist.n_rows,dist.n_rows);
-  arma::mat R = CorrSpatial(dist,phi,kappa,type);
+  arma::mat Iden = eye(dist.n_rows, dist.n_rows);
+  arma::mat R = CorrSpatial(dist, phi, kappa, type);
   arma::mat Psi = (tau2/sigma2)*Iden + R;
   Psi = 0.50*(Psi + Psi.t());
   List output;
@@ -432,8 +283,8 @@ List DevCorMatrix(arma::mat H, double phi, double kappa, String type){
 arma::mat Information(double sigma2, double phi, arma::mat X, arma::vec y, arma::mat PsiInv, arma::vec mean1,
                       arma::mat distM, double kappa, String typeS){
   arma::uword q = X.n_cols;
-  arma::mat R = CorrSpatial(distM,phi,kappa,typeS);
-  List deriv  = DevCorMatrix(distM,phi,kappa,typeS);
+  arma::mat R = CorrSpatial(distM, phi, kappa, typeS);
+  List deriv  = DevCorMatrix(distM, phi, kappa, typeS);
   arma::mat dev1 = as<arma::mat>(deriv["dev1"]);
   arma::mat dev2 = as<arma::mat>(deriv["dev2"]);
   arma::vec diff1 = y - mean1;
@@ -462,16 +313,78 @@ arma::mat Information(double sigma2, double phi, arma::mat X, arma::vec y, arma:
 
 // Information matrix for the EM - MCEM algorithm for censored data
 // ------------------------------------------------------------------------------------------------------------
+arma::mat rtnormal(int n, arma::vec mu, arma::mat Sigma, arma::vec a, arma::vec b, int burn, int lag){
+  int m = lag*n + burn;
+  int p = Sigma.n_cols;
+  arma::vec s = sqrt(Sigma.diag());
+  arma::mat R = Sigma%(1.0/(s * s.t()));
+  arma::mat Rinv = R.i();
+  arma::mat X(n, p, fill::zeros);
+
+  Rcpp::NumericVector l1 = Rcpp::wrap((a - mu)/s);
+  Rcpp::NumericVector u1 = Rcpp::wrap((b - mu)/s);
+  arma::vec pa = Rcpp::pnorm(l1,0,1,1,0);
+  arma::vec pb = Rcpp::pnorm(u1,0,1,1,0);
+  arma::vec x0 = randu<arma::vec>(p);
+  Rcpp::NumericVector x1 = Rcpp::wrap(pa + (pb - pa)%x0);
+  arma::colvec x = Rcpp::qnorm(x1,0,1,1,0);
+  arma::vec lower = as<arma::vec>(l1);
+  arma::vec upper = as<arma::vec>(u1);
+
+  arma::uvec q1 = find_nonfinite(x);
+  x.elem(q1) = lower.elem(q1);
+  q1 = find_nonfinite(x);
+  x.elem(q1) = upper.elem(q1);
+
+  umat minusj(p-1, p, fill::zeros);
+  for(int j=0; j<p; j++){
+    int k=0;
+    for(int l=0; l<p; l++){
+      if(l!=j){
+        minusj(k,j) = l;
+        k++;
+      }
+    }
+  }
+  double delta, kap, mj, tj, lv, rv, xij;
+  arma::uvec pj; arma::rowvec a1; arma::vec xj;
+  int count = 1;
+  for(int i=0; i<m; i++){
+    delta = as_scalar(x.t()*Rinv*x);
+    kap = -2.0*log(arma::randu<double>()) + delta;
+    for(int j=0; j<p; j++){
+      pj = minusj.col(j);
+      xj = x(pj);
+      a1 = xj.t()*Rinv.rows(pj);
+      mj = -a1(j)/Rinv(j,j);
+      tj = sqrt(mj*mj + (kap-as_scalar(a1.cols(pj)*xj))/Rinv(j,j));
+      lv = std::max(lower(j),(mj-tj));
+      rv = std::min(upper(j),(mj+tj));
+      xij = lv + (rv - lv)*arma::randu<double>();
+      x(j) = xij;
+    }
+    if (i==(burn + count*lag - 1)){
+      X.row(count-1) = x.t();
+      count++;
+    }
+  }
+  X = X.t();
+  X = X.each_col()%s;
+  X = (X.each_col() + mu).t();
+  X.replace(arma::datum::inf,arma::datum::nan);
+  X.replace(-arma::datum::inf,arma::datum::nan);
+  return X;
+}
+
 arma::mat InformationEM(arma::vec beta, double sigma2, double phi, double tau2, arma::mat X, arma::mat y, String typeS,
                         double kappa, arma::uvec ind0, arma::uvec ind1, arma::mat distM, arma::vec lower, arma::vec upper){
-
   arma::uword q = X.n_cols;
-  arma::uword n = 10000;
-  arma::mat R = CorrSpatial(distM,phi,kappa,typeS);
-  List VarMat = varianceMat(phi,tau2,sigma2,kappa,distM,typeS);
+  int n = 10000;
+  arma::mat R = CorrSpatial(distM, phi, kappa, typeS);
+  List VarMat = varianceMat(phi, tau2, sigma2, kappa, distM, typeS);
   arma::mat Sigma = as<arma::mat>(VarMat["Sigma"]);
   arma::mat SigmaInv = as<arma::mat>(VarMat["Inv"])/sigma2;
-  List deriv = DevCorMatrix(distM,phi,kappa,typeS);
+  List deriv = DevCorMatrix(distM, phi, kappa, typeS);
   arma::mat dev1 = as<arma::mat>(deriv["dev1"]);
   arma::mat dev2 = as<arma::mat>(deriv["dev2"]);
   arma::vec media = X*beta;
@@ -479,7 +392,8 @@ arma::mat InformationEM(arma::vec beta, double sigma2, double phi, double tau2, 
   arma::mat invS00 = (Sigma(ind0,ind0)).i();
   arma::vec mu21 = media(ind1) + Sigma(ind1,ind0)*invS00*(y(ind0) - media(ind0));
   arma::mat Sigma21 = Sigma(ind1,ind1) - Sigma(ind1,ind0)*invS00*Sigma(ind0,ind1);
-  arma::mat samplesY = rtnormal(n,mu21,Sigma21,lower(ind1),upper(ind1),0,1);
+  Sigma21 = 0.50*(Sigma21 + Sigma21.t());
+  arma::mat samplesY = rtnormal(n, mu21, Sigma21, lower(ind1), upper(ind1), 0, 1);
   arma::vec mean0 = (mean(samplesY,0)).t();
   arma::vec EY = y;
   arma::mat EYY = y*y.t();
@@ -521,7 +435,7 @@ arma::mat InformationEM(arma::vec beta, double sigma2, double phi, double tau2, 
   arma::mat ESS(q+3,q+3,fill::zeros);
   arma::vec yb = y;
   arma::vec auxMean(y.size(),fill::zeros);
-  for (uword i=0; i<n; i++){
+  for (int i=0; i<n; i++){
     yb(ind1) = (samplesY.row(i)).t();
     auxMean = yb - media;
     S1.subvec(0,q-1) = X.t()*SigmaInv*auxMean;
@@ -539,24 +453,27 @@ arma::mat InformationEM(arma::vec beta, double sigma2, double phi, double tau2, 
 // [[Rcpp::export]]
 List Spatial_model(arma::vec y, arma::mat X, arma::mat coords, double init_phi, double init_tau, arma::vec lowerp,
                    arma::vec upperp, String type, double kappa, arma::uword Maxiter, double tol, bool infM){
-
-  Progress time(Maxiter,true);
+  Progress time(Maxiter, true);
   uword p = y.n_elem;
   uword q = X.n_cols;
   arma::uvec indexs = arma::regspace<arma::uvec>(0,1,q-1);
-  arma::vec theta(q+3,fill::zeros);
-  arma::vec theta1(q+3,fill::zeros);
+  arma::vec theta(q+3, fill::zeros);
+  arma::vec theta1(q+3, fill::zeros);
   // Initial values
   arma::mat EYY = y*y.t();
-  arma::vec beta = ((X.t()*X).i())*X.t()*y;           theta(indexs) = beta;
+  arma::vec beta = ((X.t()*X).i())*X.t()*y;
+  theta(indexs) = beta;
   arma::vec media = X*beta;
-  double sigma2 = as_scalar(sum(pow(y-media,2.0)))/p;  theta(q)   = sigma2;
-  double phi = init_phi;                               theta(q+1) = phi;
-  double tau2 = init_tau;                              theta(q+2) = tau2;
+  double sigma2 = as_scalar(sum(pow(y-media,2.0)))/p;
+  theta(q)   = sigma2;
+  double phi = init_phi;
+  theta(q+1) = phi;
+  double tau2 = init_tau;
+  theta(q+2) = tau2;
   arma::vec optP(2,fill::zeros); optP(0) = phi; optP(1) = tau2;
   arma::mat Theta = theta.t();
   arma::mat distanceM = crossdist(coords);
-  List VarMat = varianceMat(phi,tau2,sigma2,kappa,distanceM,type);
+  List VarMat = varianceMat(phi, tau2, sigma2, kappa, distanceM, type);
   arma::mat PsiInv = VarMat["Inv"];
   // Stopping criteria
   double criterio = 10.0;
@@ -570,23 +487,23 @@ List Spatial_model(arma::vec y, arma::mat X, arma::mat coords, double init_phi, 
     beta = (X.t()*PsiInv*X).i()*X.t()*PsiInv*y;
     media = X*beta;
     sigma2 = as_scalar((y-media).t()*PsiInv*(y-media))/p;
-    optP = optimlL(optP,distanceM,EYY,y,media,sigma2,lowerp,upperp,type,kappa);
+    optP = optimlL(optP, distanceM, EYY, y, media, sigma2, lowerp, upperp, type, kappa);
     phi = optP(0);
     tau2 = optP(1);
-    VarMat = varianceMat(phi,tau2,sigma2,kappa,distanceM,type);
+    VarMat = varianceMat(phi, tau2, sigma2, kappa, distanceM, type);
     PsiInv = as<arma::mat>(VarMat["Inv"]);
     theta1(indexs) = beta; theta1(q) = sigma2; theta1(q+1) = phi; theta1(q+2) = tau2;
     criterio = as_scalar(sqrt(sum((theta1/theta-1.0)%(theta1/theta-1.0))));
     if (count==Maxiter){ criterio = 1e-12; }
     theta = theta1;
-    Theta = join_vert(Theta,theta.t());
+    Theta = join_vert(Theta, theta.t());
   }
   List output;
   output["Theta"] = Theta; output["theta"] = theta; output["beta"] = beta; output["sigma2"] = sigma2;
   output["phi"] = phi; output["tau2"] = tau2; output["EY"] = y; output["EYY"] = EYY;
 
   if (infM){
-    arma::mat IF = Information(sigma2,phi,X,y,PsiInv,media,distanceM,kappa,type);
+    arma::mat IF = Information(sigma2, phi, X, y, PsiInv, media, distanceM, kappa, type);
     IF = 0.50*(IF + IF.t());
     arma::mat invIF = IF.i();
     output["SE"] = sqrt(invIF.diag());
@@ -602,6 +519,8 @@ List Spatial_model(arma::vec y, arma::mat X, arma::mat coords, double init_phi, 
 List MCEMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::vec upper, arma::mat coords,
                  double init_phi, double init_tau, arma::vec lowerp, arma::vec upperp, String type,
                  double kappa, arma::uword Maxiter, arma::uword nMin, arma::uword nMax, double tol, bool infM){
+  Environment pkg = Environment::namespace_env("relliptical");
+  Function Nmoment = pkg["mvtelliptical"];
 
   Progress time(Maxiter,true);
   uword p = y.size();
@@ -611,12 +530,14 @@ List MCEMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::
   arma::uvec ind1 = find(cc==1);  // Index of censored observations
   arma::uword p0 = ind0.size();   // Number of uncensored observations
   arma::uword p1 = ind1.size();   // Number of censored observations
-  arma::vec mu21(p1,fill::zeros);          // Conditional mean
-  arma::mat Sigma21(p1,p1,fill::zeros);    // Conditional variance matrix
+  arma::vec mu21(p1, fill::zeros);          // Conditional mean
+  arma::mat Sigma21(p1, p1, fill::zeros);    // Conditional variance matrix
   arma::vec lower1 = lower(ind1);          // Lower bound of censored observations
   arma::vec upper1 = upper(ind1);          // Upper bound of censored observations
-  arma::mat invSigma(p0,p0,fill::zeros);
-  arma::vec beta(q); arma::vec media(p); double sigma2;
+  arma::mat invSigma(p0, p0, fill::zeros);
+  arma::vec beta(q);
+  arma::vec media(p);
+  double sigma2;
   if (y.has_nan()){
     arma::uvec indFin = find_finite(y);
     beta = (((X.rows(indFin)).t()*X.rows(indFin)).i())*(X.rows(indFin)).t()*y(indFin);
@@ -632,13 +553,13 @@ List MCEMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::
   double phi = init_phi;
   double tau2 = init_tau;
   arma::mat distanceM = crossdist(coords);  // Distance matrix
-  List VarMat = varianceMat(phi,tau2,sigma2,kappa,distanceM,type);
+  List VarMat = varianceMat(phi, tau2, sigma2, kappa, distanceM, type);
   arma::mat PsiInv = VarMat["Inv"];        // Inverse of Psi=(tau2/sigma2)*I + R
   arma::mat Sigma = VarMat["Sigma"];       // Variance matrix sigma2*Psi
-  arma::vec theta(q+3,fill::zeros);
-  arma::vec theta1(q+3,fill::zeros);
+  arma::vec theta(q+3, fill::zeros);
+  arma::vec theta1(q+3, fill::zeros);
   theta(indexs) = beta; theta(q) = sigma2; theta(q+1) = phi; theta(q+2) = tau2;
-  List moments; arma::vec optP(2,fill::zeros);
+  List moments; arma::vec optP(2, fill::zeros);
   optP(0) = phi; optP(1) = tau2;
   arma::mat Theta = theta.t();
   // Stopping criteria
@@ -647,7 +568,7 @@ List MCEMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::
 
   // MCEM ALGORITHM -----------------------------------------------------------
   arma::vec ss = arma::round(arma::linspace(nMin, nMax, Maxiter));
-  arma::uword n1;
+  int n1;
   while (criterio>tol) {
     time.increment();
     n1 = ss(count);
@@ -656,7 +577,8 @@ List MCEMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::
     invSigma = (Sigma(ind0,ind0)).i();
     mu21 = media(ind1) + Sigma(ind1,ind0)*invSigma*(y(ind0) - media(ind0));
     Sigma21 = Sigma(ind1,ind1) - Sigma(ind1,ind0)*invSigma*Sigma(ind0,ind1);
-    moments = Nmoment(mu21,Sigma21,lower1,upper1,n1,0,1);
+    Sigma21 = 0.50*(Sigma21 + Sigma21.t());
+    moments = Nmoment(lower1, upper1, mu21, Sigma21, "Normal", R_NilValue, n1, 0, 1);
     EY(ind1) = as<arma::vec>(moments["EY"]);
     EYY(ind1,ind1) = as<arma::mat>(moments["EYY"]);
     EYY(ind1,ind0) = as<arma::vec>(moments["EY"])*(y(ind0)).t();
@@ -669,14 +591,14 @@ List MCEMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::
     optP = optimlL(optP,distanceM,EYY,EY,media,sigma2,lowerp,upperp,type,kappa);
     phi = optP(0);
     tau2 = optP(1);
-    VarMat = varianceMat(phi,tau2,sigma2,kappa,distanceM,type);
+    VarMat = varianceMat(phi, tau2, sigma2, kappa, distanceM, type);
     PsiInv = as<arma::mat>(VarMat["Inv"]);
     Sigma = as<arma::mat>(VarMat["Sigma"]);
     theta1(indexs) = beta; theta1(q) = sigma2; theta1(q+1) = phi; theta1(q+2) = tau2;
     criterio = as_scalar(sqrt(sum((theta1/theta-1.0)%(theta1/theta-1.0))));
     if (count==Maxiter){ criterio = 1e-12; }
     theta = theta1;
-    Theta = join_vert(Theta,theta.t());
+    Theta = join_vert(Theta, theta.t());
   }
   arma::uword n2 = Theta.n_rows;
   if (n2 > 5){
@@ -691,7 +613,7 @@ List MCEMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::
   output["phi"] = phi; output["tau2"] = tau2; output["EY"] = EY; output["EYY"] = EYY;
 
   if (infM){
-    arma::mat IF = InformationEM(beta,sigma2,phi,tau2,X,y,type,kappa,ind0,ind1,distanceM,lower,upper);
+    arma::mat IF = InformationEM(beta, sigma2, phi, tau2, X, y, type, kappa, ind0, ind1, distanceM, lower, upper);
     IF = 0.50*(IF + IF.t());
     arma::mat invIF = IF.i();
     output["SE"] = sqrt(invIF.diag());
@@ -707,13 +629,10 @@ List MCEMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::
 List EMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::vec upper, arma::mat coords,
                double init_phi, double init_tau, arma::vec lowerp, arma::vec upperp, String type,
                double kappa, arma::uword Maxiter, double tol, bool infM){
-
-  // Obtaining namespace of MomTrunc package
   Environment pkg = Environment::namespace_env("MomTrunc");
-  // Picking up meanvarTMD() function from MomTrunc package
   Function mvTnorm = pkg["meanvarTMD"];
 
-  Progress time(Maxiter,true);
+  Progress time(Maxiter, true);
   arma::uword p = y.size();
   arma::uword q = X.n_cols;
   arma::uvec indexs = arma::regspace<arma::uvec>(0,1,q-1);
@@ -721,11 +640,11 @@ List EMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::ve
   arma::uvec ind1 = find(cc==1);  // Index of censored observations
   arma::uword p0 = ind0.size();   // Number of uncensored observations
   arma::uword p1 = ind1.size();   // Number of censored observations
-  arma::vec mu21(p1,fill::zeros);          // Conditional mean
-  arma::mat Sigma21(p1,p1,fill::zeros);    // Conditional variance matrix
+  arma::vec mu21(p1, fill::zeros);          // Conditional mean
+  arma::mat Sigma21(p1, p1, fill::zeros);    // Conditional variance matrix
   arma::vec lower1 = lower(ind1);          // Lower bound of censored observations
   arma::vec upper1 = upper(ind1);          // Upper bound of censored observations
-  arma::mat invSigma(p0,p0,fill::zeros);
+  arma::mat invSigma(p0, p0, fill::zeros);
   arma::mat distanceM = crossdist(coords);  // Distance matrix
   arma::vec beta(q); arma::vec media(p); double sigma2;
   if (y.has_nan()){
@@ -740,13 +659,14 @@ List EMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::ve
   }
   double phi = init_phi;
   double tau2 = init_tau;
-  List VarMat = varianceMat(phi,tau2,sigma2,kappa,distanceM,type);
+  List VarMat = varianceMat(phi, tau2, sigma2, kappa, distanceM, type);
   arma::mat PsiInv = VarMat["Inv"];        // Inverse of Psi=(tau2/sigma2)*I + R
   arma::mat Sigma = VarMat["Sigma"];       // Variance matrix sigma2*Psi
   arma::vec theta(q+3,fill::zeros);
   arma::vec theta1(q+3,fill::zeros);
   theta(indexs) = beta; theta(q) = sigma2; theta(q+1) = phi; theta(q+2) = tau2;
-  arma::vec optP(2,fill::zeros);           optP(0) = phi;    optP(1) = tau2;
+  arma::vec optP(2,fill::zeros);
+  optP(0) = phi; optP(1) = tau2;
   arma::mat Theta = theta.t();
   // Stopping criteria
   double criterio = 10.0;
@@ -763,7 +683,7 @@ List EMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::ve
     invSigma = (Sigma(ind0,ind0)).i();
     mu21 = media(ind1) + Sigma(ind1,ind0)*invSigma*(y(ind0) - media(ind0));
     Sigma21 = Sigma(ind1,ind1) - Sigma(ind1,ind0)*invSigma*Sigma(ind0,ind1);
-    moments = mvTnorm(lower1,upper1,mu21,Sigma21,NULL,NULL,NULL,NULL,"normal");
+    moments = mvTnorm(lower1, upper1, mu21, Sigma21, R_NilValue, R_NilValue, R_NilValue, R_NilValue, "normal");
     EY(ind1) = as<arma::vec>(moments["mean"]);
     EYY(ind1,ind1) = as<arma::mat>(moments["EYY"]);
     EYY(ind1,ind0) = as<arma::vec>(moments["mean"])*(y(ind0)).t();
@@ -773,10 +693,10 @@ List EMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::ve
     beta = (X.t()*PsiInv*X).i()*X.t()*PsiInv*EY;
     media = X*beta;
     sigma2 = (trace(EYY*PsiInv) - as_scalar(EY.t()*PsiInv*media + media.t()*PsiInv*EY - media.t()*PsiInv*media))/p;
-    optP = optimlL(optP,distanceM,EYY,EY,media,sigma2,lowerp,upperp,type,kappa);
+    optP = optimlL(optP, distanceM, EYY, EY, media, sigma2, lowerp, upperp, type, kappa);
     phi = optP(0);
     tau2 = optP(1);
-    VarMat = varianceMat(phi,tau2,sigma2,kappa,distanceM,type);
+    VarMat = varianceMat(phi, tau2, sigma2, kappa, distanceM, type);
     PsiInv = as<arma::mat>(VarMat["Inv"]);
     Sigma = as<arma::mat>(VarMat["Sigma"]);
     theta1(indexs) = beta; theta1(q) = sigma2; theta1(q+1) = phi; theta1(q+2) = tau2;
@@ -790,7 +710,7 @@ List EMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::ve
   output["phi"] = phi; output["tau2"] = tau2; output["EY"] = EY; output["EYY"] = EYY;
 
   if (infM){
-    arma::mat IF = InformationEM(beta,sigma2,phi,tau2,X,y,type,kappa,ind0,ind1,distanceM,lower,upper);
+    arma::mat IF = InformationEM(beta, sigma2, phi, tau2, X, y, type, kappa, ind0, ind1, distanceM, lower, upper);
     IF = 0.50*(IF + IF.t());
     arma::mat invIF = IF.i();
     output["SE"] = sqrt(invIF.diag());
@@ -806,8 +726,7 @@ List EMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::ve
 List SAEMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::vec upper, arma::mat coords,
                  double init_phi, double init_tau, arma::vec lowerp, arma::vec upperp, String type,
                  double kappa, arma::uword Maxiter, double pc, arma::uword m, double tol, bool infM){
-
-  Progress time(Maxiter,true);
+  Progress time(Maxiter, true);
   arma::uword p = y.size();
   arma::uword q = X.n_cols;
   arma::uvec indexs = arma::regspace<arma::uvec>(0,1,q-1);
@@ -815,11 +734,11 @@ List SAEMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::
   arma::uvec ind1 = find(cc==1);  // Index of censored observations
   arma::uword p0 = ind0.size();   // Number of uncensored observations
   arma::uword p1 = ind1.size();   // Number of censored observations
-  arma::vec mu21(p1,fill::zeros);          // Conditional mean
-  arma::mat Sigma21(p1,p1,fill::zeros);    // Conditional variance matrix
+  arma::vec mu21(p1, fill::zeros);          // Conditional mean
+  arma::mat Sigma21(p1, p1, fill::zeros);    // Conditional variance matrix
   arma::vec lower1 = lower(ind1);          // Lower bound of censored observations
   arma::vec upper1 = upper(ind1);          // Upper bound of censored observations
-  arma::mat invSigma(p0,p0,fill::zeros);
+  arma::mat invSigma(p0, p0, fill::zeros);
   arma::vec beta(q); arma::vec media(p); double sigma2;
   if (y.has_nan()){
     arma::uvec indFin = find_finite(y);
@@ -834,34 +753,36 @@ List SAEMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::
   double phi = init_phi;
   double tau2 = init_tau;
   arma::mat distanceM = crossdist(coords);  // Distance matrix
-  List VarMat = varianceMat(phi,tau2,sigma2,kappa,distanceM,type);
+  List VarMat = varianceMat(phi, tau2, sigma2, kappa, distanceM, type);
   arma::mat PsiInv = VarMat["Inv"];        // Inverse of Psi=(tau2/sigma2)*I + R
   arma::mat Sigma = VarMat["Sigma"];       // Variance matrix sigma2*Psi
   // Information matrix
-  List deriv = DevCorMatrix(distanceM,phi,kappa,type);
+  List deriv = DevCorMatrix(distanceM, phi, kappa, type);
   arma::mat dev1 = as<arma::mat>(deriv["dev1"]);
-  arma::mat R = CorrSpatial(distanceM,phi,kappa,type);
-  arma::mat ESS(q+3,q+3,fill::zeros);
-  arma::vec score(q+3,fill::zeros);
-  arma::vec auxMean(p,fill::zeros);
-  arma::mat Hessian(q+3,q+3,fill::zeros);
+  arma::mat R = CorrSpatial(distanceM, phi, kappa, type);
+  arma::mat ESS(q+3, q+3, fill::zeros);
+  arma::vec score(q+3, fill::zeros);
+  arma::vec auxMean(p, fill::zeros);
+  arma::mat Hessian(q+3, q+3, fill::zeros);
   // Estimates
-  arma::vec theta(q+3,fill::zeros);
-  arma::vec theta1(q+3,fill::zeros);
+  arma::vec theta(q+3, fill::zeros);
+  arma::vec theta1(q+3, fill::zeros);
   theta(indexs) = beta; theta(q) = sigma2; theta(q+1) = phi; theta(q+2) = tau2;
-  arma::vec optP(2,fill::zeros);           optP(0) = phi;    optP(1) = tau2;
+  arma::vec optP(2,fill::zeros);
+  optP(0) = phi; optP(1) = tau2;
   arma::mat Theta = theta.t();
   // Stopping criteria
   double criterio = 10.0;
   arma::uword count = 0;
 
   // SAEM ALGORITHM ------------------------------------------------------------
-  arma::mat gibbs(1,p1,fill::zeros);
-  arma::vec SAEMY(p,fill::zeros);          // Estimate of first conditional moment
-  arma::mat SAEMYY(p,p,fill::zeros);       // Estimate of second conditional moment
-  arma::vec EY(p,fill::zeros);     arma::vec auxY = y;
-  arma::mat EYY(p,p,fill::zeros);
-  arma::vec delta(Maxiter,fill::ones);
+  arma::mat gibbs(1, p1, fill::zeros);
+  arma::vec SAEMY(p, fill::zeros);          // Estimate of first conditional moment
+  arma::mat SAEMYY(p, p, fill::zeros);       // Estimate of second conditional moment
+  arma::vec EY(p, fill::zeros);
+  arma::vec auxY = y;
+  arma::mat EYY(p, p, fill::zeros);
+  arma::vec delta(Maxiter, fill::ones);
   if (pc<1){
     arma::vec nonM = 1.0/arma::regspace<arma::vec>(1,1,Maxiter*(1-pc));
     arma::uvec nonI = arma::regspace<arma::uvec>(Maxiter-nonM.n_elem,1,Maxiter-1);
@@ -874,8 +795,9 @@ List SAEMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::
     invSigma = (Sigma(ind0,ind0)).i();
     mu21 = media(ind1) + Sigma(ind1,ind0)*invSigma*(y(ind0) - media(ind0));
     Sigma21 = Sigma(ind1,ind1) - Sigma(ind1,ind0)*invSigma*Sigma(ind0,ind1);
+    Sigma21 = 0.50*(Sigma21 + Sigma21.t());
     for (uword i=0; i<m; i++){
-      gibbs = rtnormal(1,mu21,Sigma21,lower1,upper1,3,1);
+      gibbs = rtnormal(1, mu21, Sigma21, lower1, upper1, 3, 1);
       auxY(ind1) = (gibbs).t();
       EY = EY + auxY;
       EYY = EYY + auxY*auxY.t();
@@ -900,14 +822,14 @@ List SAEMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::
     optP = optimlL(optP,distanceM,SAEMYY,SAEMY,media,sigma2,lowerp,upperp,type,kappa);
     phi = optP(0);
     tau2 = optP(1);
-    VarMat = varianceMat(phi,tau2,sigma2,kappa,distanceM,type);
+    VarMat = varianceMat(phi, tau2, sigma2, kappa, distanceM, type);
     PsiInv = as<arma::mat>(VarMat["Inv"]);
     Sigma = as<arma::mat>(VarMat["Sigma"]);
     if (infM){
-      deriv = DevCorMatrix(distanceM,phi,kappa,type);
+      deriv = DevCorMatrix(distanceM, phi, kappa, type);
       dev1 = as<arma::mat>(deriv["dev1"]);
-      R = CorrSpatial(distanceM,phi,kappa,type);
-      ESS.zeros(q+3,q+3);
+      R = CorrSpatial(distanceM, phi, kappa, type);
+      ESS.zeros(q+3, q+3);
       score.zeros(q+3);
       auxMean.zeros(q+3);
     }
@@ -915,7 +837,7 @@ List SAEMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::
     criterio = as_scalar(sqrt(sum((theta1/theta-1)%(theta1/theta-1))));
     if (count==Maxiter){ criterio = 1e-12; }
     theta = theta1;
-    Theta = join_vert(Theta,theta.t());
+    Theta = join_vert(Theta, theta.t());
     EY.zeros(p);
     EYY.zeros(p,p);
   }
@@ -932,13 +854,13 @@ List SAEMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::
     auxMean = SAEMY - media;
     arma::vec diff2 = 2.0*SAEMY - media;
     // Q'(theta)
-    arma::vec d1Q(q+3,fill::zeros);
+    arma::vec d1Q(q+3, fill::zeros);
     d1Q(indexs) = X.t()*SigmaInv*auxMean;
     d1Q(q) = -0.50*(trace(SigmaInv*R) - trace(SAEMYY*E1) + as_scalar(media.t()*E1*diff2));
     d1Q(q+1) = (-0.50*sigma2)*(trace(SigmaInv*dev1) - trace(SAEMYY*E2) + as_scalar(media.t()*E2*diff2));
     d1Q(q+2) = -0.50*(trace(SigmaInv) - trace(SAEMYY*E0) + as_scalar(media.t()*E0*diff2));
     // Q''(theta)
-    arma::mat d2Q(q+3,q+3,fill::zeros);
+    arma::mat d2Q(q+3, q+3, fill::zeros);
     d2Q(indexs,indexs) = -X.t()*SigmaInv*X;
     d2Q.submat(0,q,q-1,q) = -X.t()*E1*auxMean;
     d2Q.submat(q,0,q,q-1) = (d2Q.submat(0,q,q-1,q)).t();

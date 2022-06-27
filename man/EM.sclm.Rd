@@ -2,115 +2,123 @@
 % Please edit documentation in R/EstEMspatial_USER.R
 \name{EM.sclm}
 \alias{EM.sclm}
-\title{Censored Spatial Model Estimation via EM Algorithm}
+\title{ML estimation of spatial censored linear models via the EM algorithm}
 \usage{
-EM.sclm(y, x, cens, LI, LS, coords, init.phi, init.nugget,
-  type = "exponential", kappa = 0, lower = c(0.01, 0.01), upper = c(30,
-  30), MaxIter = 300, error = 1e-05, show.SE = TRUE)
+EM.sclm(y, x, ci, lcl = NULL, ucl = NULL, coords, phi0, nugget0,
+  type = "exponential", kappa = NULL, lower = c(0.01, 0.01),
+  upper = c(30, 30), MaxIter = 300, error = 1e-04, show_se = TRUE)
 }
 \arguments{
-\item{y}{vector of responses.}
+\item{y}{vector of responses of length \eqn{n}.}
 
-\item{x}{design matrix.}
+\item{x}{design matrix of dimensions \eqn{n\times q}, where \eqn{q} is the number
+of fixed effects, including the intercept.}
 
-\item{cens}{vector of censoring indicators. For each observation: \code{1} if censored/missing
-and \code{0} otherwise.}
+\item{ci}{vector of censoring indicators of length \eqn{n}. For each observation:
+\code{1} if censored/missing, \code{0} otherwise.}
 
-\item{LI}{lower limit of detection. For each observation: if non-censored \code{=y},
-if left-censored/missing \code{=-Inf}, or \code{=LOD} if right/interval-censored.}
+\item{lcl, ucl}{vectors of length \eqn{n} representing the lower and upper bounds
+of the interval, which contains the true value of the censored observation. Default
+\code{=NULL}, indicating no-censored data. For each observation: \code{lcl=-Inf} and
+\code{ucl=c} (left censoring); \code{lcl=c} and \code{ucl=Inf} (right censoring); and
+\code{lcl} and \code{ucl} must be finite for interval censoring. Moreover, missing data
+could be defined by setting \code{lcl=-Inf} and \code{ucl=Inf}.}
 
-\item{LS}{upper limit of detection. For each observation: if non-censored \code{=y},
-if right-censored/missing \code{=Inf}, or \code{=LOD} if left/interval-censored.}
+\item{coords}{2D spatial coordinates of dimensions \eqn{n\times 2}.}
 
-\item{coords}{2D spatial coordinates.}
+\item{phi0}{initial value for the spatial scaling parameter.}
 
-\item{init.phi}{initial value for the spatial scaling parameter.}
+\item{nugget0}{initial value for the nugget effect parameter.}
 
-\item{init.nugget}{initial value for the nugget effect parameter.}
+\item{type}{type of spatial correlation function: \code{'exponential'},
+\code{'gaussian'}, \code{'matern'}, and \code{'pow.exp'} for exponential, gaussian,
+matérn, and power exponential, respectively.}
 
-\item{type}{type of spatial correlation function: '\code{exponential}', '\code{gaussian}',
-'\code{matern}', and '\code{pow.exp}' for exponential, gaussian, matern, and power exponential, respectively.}
+\item{kappa}{parameter for some spatial correlation functions. See \code{\link{CovMat}}.}
 
-\item{kappa}{parameter for all spatial correlation functions. See \code{\link{CovMat}}.}
+\item{lower, upper}{vectors of lower and upper bounds for the optimization method.
+If unspecified, the default is \code{c(0.01,0.01)} for lower and \code{c(30,30)}
+for upper.}
 
-\item{lower, upper}{vectors of lower and upper bounds for the optimization method. If unspecified, the default is
-\code{c(0.01,0.01)} for lower and \code{c(30,30)} for upper.}
+\item{MaxIter}{maximum number of iterations for the EM algorithm. By default \code{=300}.}
 
-\item{MaxIter}{maximum number of iterations of the EM algorithm. By default \code{=300}.}
+\item{error}{maximum convergence error. By default \code{=1e-4}.}
 
-\item{error}{maximum convergence error. By default \code{=1e-5}.}
-
-\item{show.SE}{\code{TRUE} or \code{FALSE}. It indicates if the standard errors should be estimated. By default \code{=TRUE}.}
+\item{show_se}{logical. It indicates if the standard errors should be estimated by default \code{=TRUE}.}
 }
 \value{
-The function returns an object of class \code{sclm} which is a list given by:
+An object of class "sclm". Generic functions \code{print} and \code{summary} have
+methods to show the results of the fit. The function \code{plot} can extract
+convergence graphs for the parameter estimates.
 
+Specifically, the following components are returned:
 \item{Theta}{estimated parameters in all iterations, \eqn{\theta = (\beta, \sigma^2, \phi, \tau^2)}.}
 \item{theta}{final estimation of \eqn{\theta = (\beta, \sigma^2, \phi, \tau^2)}.}
 \item{beta}{estimated \eqn{\beta}.}
 \item{sigma2}{estimated \eqn{\sigma^2}.}
 \item{phi}{estimated \eqn{\phi}.}
 \item{tau2}{estimated \eqn{\tau^2}.}
-\item{EY}{first moment for the truncated normal distribution computed in the last iteration.}
-\item{EYY}{second moment for the truncated normal distribution computed in the last iteration.}
+\item{EY}{first conditional moment computed in the last iteration.}
+\item{EYY}{second conditional moment computed in the last iteration.}
 \item{SE}{vector of standard errors of \eqn{\theta = (\beta, \sigma^2, \phi, \tau^2)}.}
 \item{InfMat}{observed information matrix.}
 \item{loglik}{log-likelihood for the EM method.}
 \item{AIC}{Akaike information criterion.}
 \item{BIC}{Bayesian information criterion.}
-\item{Iterations}{number of iterations needed to converge.}
-\item{ptime}{processing time.}
-\item{range}{the effective range.}
+\item{Iter}{number of iterations needed to converge.}
+\item{time}{processing time.}
+\item{call}{\code{RcppCensSpatial} call that produced the object.}
+\item{tab}{table of estimates.}
+\item{critFin}{selection criteria.}
+\item{range}{effective range.}
+\item{ncens}{number of censored/missing observations.}
+\item{MaxIter}{maximum number of iterations for the EM algorithm.}
 }
 \description{
-This function returns the maximum likelihood (ML) estimates of the unknown parameters in Gaussian spatial models
-with censored/missing responses via the EM algorithm. It supports left, right, interval,
-or missing values in the dependent variable. It also computes the observed information matrix using
-the method developed by \insertCite{louis1982finding;textual}{RcppCensSpatial}.
+It fits the left, right, or interval spatial censored linear model using the
+Expectation-Maximization (EM) algorithm. It provides estimates and standard errors
+of the parameters and supports missing values on the dependent variable.
 }
 \details{
 The spatial Gaussian model is given by
 
 \eqn{Y = X\beta + \xi},
 
-where \eqn{Y} is the \eqn{n x 1} vector of response, \eqn{X} is the \eqn{n x q} design matrix,
-\eqn{\beta} is the \eqn{q x 1} vector of regression coefficients to be estimated, and \eqn{\xi}
-is the error term which is normally distributed with zero-mean and covariance matrix
-\eqn{\Sigma=\sigma^2 R(\phi) + \tau^2 I_n}. We assume that \eqn{\Sigma} is non-singular and
-\eqn{X} has full rank \insertCite{diggle2007springer}{RcppCensSpatial}.
+where \eqn{Y} is the \eqn{n\times 1} response vector, \eqn{X} is the \eqn{n\times q}
+design matrix, \eqn{\beta} is the \eqn{q\times 1} vector of regression coefficients
+to be estimated, and \eqn{\xi} is the error term. Which is normally distributed with
+zero-mean and covariance matrix \eqn{\Sigma=\sigma^2 R(\phi) + \tau^2 I_n}. We assume
+that \eqn{\Sigma} is non-singular and \eqn{X} has a full rank \insertCite{diggle2007springer}{RcppCensSpatial}.
 
-The estimation process was performed via the EM algorithm initially proposed by
-\insertCite{dempster1977maximum;textual}{RcppCensSpatial}. The conditional expectations are
-computed through function \code{meanvarTMD} available in package \code{MomTrunc}
-\insertCite{galarza2019moments}{RcppCensSpatial}.
+The estimation process is performed via the EM algorithm, initially proposed by
+\insertCite{dempster1977maximum;textual}{RcppCensSpatial}. The conditional
+expectations are computed using the function \code{meanvarTMD} available in the
+package \code{MomTrunc}.
 }
 \note{
-The EM final estimates correspond to the estimates obtained at the last iteration of the
-EM algorithm.
+The EM final estimates correspond to the estimates obtained at the last iteration
+of the EM algorithm.
 
-To fit a regression model for non-censored data, just set \code{cens} as a vector of zeros.
-
-Functions \code{print}, \code{summary}, and \code{plot} work for objects of class \code{sclm}.
+To fit a regression model for non-censored data, just set \code{ci} as a vector of zeros.
 }
 \examples{
 # Simulated example: 10\% of left-censored observations
-n = 50   # Test with another values for n
 set.seed(1000)
-coords = round(matrix(runif(2*n,0,15),n,2),5)
+n = 50   # Test with another values for n
+coords = round(matrix(runif(2*n,0,15),n,2), 5)
 x = cbind(rnorm(n), runif(n))
-data = rCensSp(c(-1,3),2,4,0.5,x,coords,"left",0.10,0,"gaussian",0)
+data = rCensSp(c(-1,3), 2, 4, 0.5, x, coords, "left", 0.10, 0, "gaussian")
 
-fit = EM.sclm(y=data$yobs, x=data[,7:8], cens=data$cens, LI=data$LI,
-             LS=data$LS, coords=data[,5:6], init.phi=3, init.nugget=1,
-             type="gaussian", error=1e-4)
+fit = EM.sclm(y=data$y, x=x, ci=data$ci, lcl=data$lcl, ucl=data$ucl,
+              coords=coords, phi0=3, nugget0=1, type="gaussian")
 fit
 }
 \references{
 \insertAllCited
 }
 \seealso{
-\code{\link{SAEM.sclm}}, \code{\link{MCEM.sclm}}, \code{\link{predict.sclm}}
+\code{\link{MCEM.sclm}}, \code{\link{SAEM.sclm}}, \code{\link{predict.sclm}}
 }
 \author{
-Katherine L. Valeriano, Alejandro Ordonez, Christian E. Galarza and Larissa A. Matos.
+Katherine L. Valeriano, Alejandro Ordoñez, Christian E. Galarza, and Larissa A. Matos.
 }

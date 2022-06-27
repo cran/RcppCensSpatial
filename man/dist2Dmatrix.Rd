@@ -2,18 +2,18 @@
 % Please edit documentation in R/AuxiliaryFunctions_USER.R
 \name{dist2Dmatrix}
 \alias{dist2Dmatrix}
-\title{Distance Matrix Computation}
+\title{Distance matrix computation}
 \usage{
 dist2Dmatrix(coords)
 }
 \arguments{
-\item{coords}{2D spatial coordinates.}
+\item{coords}{2D spatial coordinates of dimensions \eqn{n\times 2}.}
 }
 \value{
-The function returns the \eqn{n x n} distance matrix.
+An \eqn{n\times n} distance matrix.
 }
 \description{
-This function computes the Euclidean distance matrix for a set of coordinates.
+It computes the Euclidean distance matrix for a set of coordinates.
 }
 \examples{
 n = 100
@@ -23,5 +23,5 @@ y = round(runif(n,0,10), 5)     # Y coordinate
 Mdist = dist2Dmatrix(cbind(x, y))
 }
 \author{
-Katherine L. Valeriano, Alejandro Ordonez, Christian E. Galarza and Larissa A. Matos.
+Katherine L. Valeriano, Alejandro Ordoñez, Christian E. Galarza, and Larissa A. Matos.
 }

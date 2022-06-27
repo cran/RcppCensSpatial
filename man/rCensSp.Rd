@@ -2,10 +2,10 @@
 % Please edit documentation in R/rCensspatial_USER.R
 \name{rCensSp}
 \alias{rCensSp}
-\title{Censored Spatial Data Simulation}
+\title{Censored spatial data simulation}
 \usage{
 rCensSp(beta, sigma2, phi, nugget, x, coords, cens = "left", pcens = 0.1,
-  npred = 0, cov.model = "exponential", kappa = 0)
+  npred = 0, cov.model = "exponential", kappa = NULL)
 }
 \arguments{
 \item{beta}{linear regression parameters.}
@@ -16,54 +16,54 @@ rCensSp(beta, sigma2, phi, nugget, x, coords, cens = "left", pcens = 0.1,
 
 \item{nugget}{nugget effect parameter.}
 
-\item{x}{design matrix.}
+\item{x}{design matrix of dimensions \eqn{n\times q}.}
 
-\item{coords}{2D spatial coordinates.}
+\item{coords}{2D spatial coordinates of dimensions \eqn{n\times 2}.}
 
-\item{cens}{'\code{left}' or '\code{right}' censoring. By default \code{='left'}.}
+\item{cens}{\code{'left'} or \code{'right'} censoring. By default \code{='left'}.}
 
 \item{pcens}{desired censoring rate. By default \code{=0.10}.}
 
 \item{npred}{number of simulated data used for cross-validation (Prediction). By default \code{=0}.}
 
-\item{cov.model}{type of spatial correlation function: '\code{exponential}', '\code{gaussian}',
-'\code{matern}', and '\code{pow.exp}' for exponential, gaussian, matern, and power exponential, respectively.}
+\item{cov.model}{type of spatial correlation function: \code{'exponential'}, \code{'gaussian'},
+\code{'matern'}, and \code{'pow.exp'} for exponential, gaussian, matérn, and power exponential, respectively.}
 
-\item{kappa}{parameter for all spatial correlation functions. For exponential and gaussian
-\eqn{\kappa=0}, for power exponential \eqn{0 < \kappa <= 2}, and for matern correlation function
-\eqn{\kappa > 0}.}
+\item{kappa}{parameter for some spatial correlation functions. For exponential and
+gaussian \code{kappa=NULL}, for power exponential \code{0 < kappa <= 2}, and for
+matérn correlation function \code{kappa > 0}.}
 }
 \value{
-If \code{npred > 0}, it returns a list with two datasets: \code{TrainingData} and \code{TestData};
-otherwise, it returns a data frame with the simulated data.
+If \code{npred > 0}, it returns two lists: \code{Data} and
+\code{TestData}; otherwise, it returns a list with the simulated data.
 
-\code{TrainingData}
-\item{yobs}{generated response vector.}
-\item{cens}{censoring indicator.}
-\item{LI}{lower censoring bound.}
-\item{LS}{upper censoring bound.}
-\item{xcoord}{x coordinates.}
-\item{ycoord}{y coordinates.}
-\item{X}{design matrix.}
+\code{Data}
+\item{y}{response vector.}
+\item{ci}{censoring indicator.}
+\item{lcl}{lower censoring bound.}
+\item{ucl}{upper censoring bound.}
+\item{coords}{coordinates matrix.}
+\item{x}{design matrix.}
 
 \code{TestData}
-\item{yobs}{generated response vector.}
-\item{xcoord}{x coordinates.}
-\item{ycoord}{y coordinates.}
-\item{X}{design matrix.}
+\item{y}{response vector.}
+\item{coords}{coordinates matrix.}
+\item{x}{design matrix.}
 }
 \description{
-This function simulates censored spatial data with a linear structure for an established censoring rate.
+It simulates censored spatial data with a linear structure for an established censoring rate.
 }
 \examples{
 n = 100
 set.seed(1000)
-coords = round(matrix(runif(2*n,0,15),n,2),5)
+coords = round(matrix(runif(2*n,0,15),n,2), 5)
 x = cbind(1, rnorm(n))
-data = rCensSp(c(5,2),2,4,0.70,x,coords,"left",0.10,10,"gaussian",0)
-data$TrainingData
+data = rCensSp(beta=c(5,2), sigma2=2, phi=4, nugget=0.70, x=x,
+               coords=coords, cens="left", pcens=0.10, npred=10,
+               cov.model="gaussian")
+data$Data
 data$TestData
 }
 \author{
-Katherine L. Valeriano, Alejandro Ordonez, Christian E. Galarza and Larissa A. Matos.
+Katherine L. Valeriano, Alejandro Ordoñez, Christian E. Galarza, and Larissa A. Matos.
 }
