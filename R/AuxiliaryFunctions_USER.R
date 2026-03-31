@@ -3,10 +3,10 @@
 #' It computes the Euclidean distance matrix for a set of coordinates.
 #' @param coords 2D spatial coordinates of dimensions \eqn{n\times 2}.
 #' @return An \eqn{n\times n} distance matrix.
-#' @author Katherine L. Valeriano, Alejandro Ordoñez, Christian E. Galarza, and Larissa A. Matos.
+#' @author Katherine L. Valeriano, Christian E. Galarza, and Larissa A. Matos.
 #' @examples
-#' n = 100
 #' set.seed(1000)
+#' n = 100
 #' x = round(runif(n,0,10), 5)     # X coordinate
 #' y = round(runif(n,0,10), 5)     # Y coordinate
 #' Mdist = dist2Dmatrix(cbind(x, y))
@@ -26,7 +26,7 @@ dist2Dmatrix = function(coords){
 
 #' Covariance matrix for spatial models
 #'
-#' It computes the spatial variance-covariance matrix considering exponential,
+#' It computes the spatial variance-covariance matrix using exponential,
 #' gaussian, matérn, or power exponential correlation function.
 #'
 #' @param phi spatial scaling parameter.
@@ -66,7 +66,7 @@ dist2Dmatrix = function(coords){
 #'
 #' @return An \eqn{n\times n} spatial covariance matrix.
 #'
-#' @author Katherine L. Valeriano, Alejandro Ordoñez, Christian E. Galarza, and Larissa A. Matos.
+#' @author Katherine L. Valeriano, Christian E. Galarza, and Larissa A. Matos.
 #'
 #' @seealso \code{\link{dist2Dmatrix}}, \code{\link{EM.sclm}}, \code{\link{MCEM.sclm}}, \code{\link{SAEM.sclm}}
 #'
@@ -113,7 +113,7 @@ CovMat = function(phi, tau2, sig2, coords, type="exponential", kappa=NULL){
 
 #' Prediction in spatial models with censored/missing responses
 #'
-#' It performs spatial prediction in a set of new \code{S} spatial locations.
+#' It performs spatial prediction at a set of new \code{S} spatial locations.
 #'
 #' @param object object of class \code{'sclm'} given as output of \code{\link{EM.sclm}},
 #' \code{\link{MCEM.sclm}}, or \code{\link{SAEM.sclm}} function.
@@ -121,15 +121,15 @@ CovMat = function(phi, tau2, sig2, coords, type="exponential", kappa=NULL){
 #' @param xPre matrix of covariates for which prediction is performed.
 #' @param ... further arguments passed to or from other methods.
 #'
-#' @details This function predicts using the mean squared error (MSE) criterion, which
-#' takes the conditional expectation E(Y|X) as the best linear predictor.
+#' @details This function performs prediction under the mean squared error (MSE) criterion,
+#' where the conditional expectation \eqn{E(Y | X)} is used as the optimal predictor.
 #'
 #' @return The function returns a list with:
 #' \item{coord}{matrix of coordinates.}
 #' \item{predValues}{predicted values.}
 #' \item{sdPred}{predicted standard deviations.}
 #'
-#' @author Katherine L. Valeriano, Alejandro Ordoñez, Christian E. Galarza, and Larissa A. Matos.
+#' @author Katherine L. Valeriano, Christian E. Galarza, and Larissa A. Matos.
 #'
 #' @seealso \code{\link{EM.sclm}}, \code{\link{MCEM.sclm}}, \code{\link{SAEM.sclm}}
 #'
@@ -180,7 +180,7 @@ predict.sclm = function(object, locPre, xPre, ...){
     if (nrow(locPre)!=nrow(xPre) | ncol(locPre)!=2) stop("Non-conformable dimensions between locPre and xPre")
   } else { stop("locPre and xPre must be specified") }
 
-  ypred = predict.new(object, xPre, locPre)
+  ypred = predecir.new(object, xPre, locPre)
   out.ST = ypred
 
   return(out.ST)
@@ -231,5 +231,5 @@ print.sclm = function(x, ...){
 
 #' @export
 plot.sclm = function(x, ...){
-  plot.convergence(x)
+  plt.convergence(x)
 }

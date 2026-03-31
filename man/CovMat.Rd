@@ -27,7 +27,7 @@ and for matérn correlation function \code{kappa > 0}.}
 An \eqn{n\times n} spatial covariance matrix.
 }
 \description{
-It computes the spatial variance-covariance matrix considering exponential,
+It computes the spatial variance-covariance matrix using exponential,
 gaussian, matérn, or power exponential correlation function.
 }
 \details{
@@ -65,5 +65,5 @@ Cov = CovMat(phi=5, tau2=0.8, sig2=2, coords=coords, type="exponential")
 \code{\link{dist2Dmatrix}}, \code{\link{EM.sclm}}, \code{\link{MCEM.sclm}}, \code{\link{SAEM.sclm}}
 }
 \author{
-Katherine L. Valeriano, Alejandro Ordoñez, Christian E. Galarza, and Larissa A. Matos.
+Katherine L. Valeriano, Christian E. Galarza, and Larissa A. Matos.
 }

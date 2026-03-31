@@ -23,11 +23,11 @@ The function returns a list with:
 \item{sdPred}{predicted standard deviations.}
 }
 \description{
-It performs spatial prediction in a set of new \code{S} spatial locations.
+It performs spatial prediction at a set of new \code{S} spatial locations.
 }
 \details{
-This function predicts using the mean squared error (MSE) criterion, which
-takes the conditional expectation E(Y|X) as the best linear predictor.
+This function performs prediction under the mean squared error (MSE) criterion,
+where the conditional expectation \eqn{E(Y | X)} is used as the optimal predictor.
 }
 \examples{
 \donttest{set.seed(1000)
@@ -68,5 +68,5 @@ mean((data2$y - pred3$predValues)^2)}
 \code{\link{EM.sclm}}, \code{\link{MCEM.sclm}}, \code{\link{SAEM.sclm}}
 }
 \author{
-Katherine L. Valeriano, Alejandro Ordoñez, Christian E. Galarza, and Larissa A. Matos.
+Katherine L. Valeriano, Christian E. Galarza, and Larissa A. Matos.
 }

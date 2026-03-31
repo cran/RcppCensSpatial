@@ -518,10 +518,7 @@ List Spatial_model(arma::vec y, arma::mat X, arma::mat coords, double init_phi, 
 // [[Rcpp::export]]
 List MCEMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::vec upper, arma::mat coords,
                  double init_phi, double init_tau, arma::vec lowerp, arma::vec upperp, String type,
-                 double kappa, arma::uword Maxiter, arma::uword nMin, arma::uword nMax, double tol, bool infM){
-  Environment pkg = Environment::namespace_env("relliptical");
-  Function Nmoment = pkg["mvtelliptical"];
-
+                 double kappa, arma::uword Maxiter, arma::uword nMin, arma::uword nMax, double tol, bool infM, Function Nmoment){
   Progress time(Maxiter,true);
   uword p = y.size();
   uword q = X.n_cols;
@@ -578,7 +575,7 @@ List MCEMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::
     mu21 = media(ind1) + Sigma(ind1,ind0)*invSigma*(y(ind0) - media(ind0));
     Sigma21 = Sigma(ind1,ind1) - Sigma(ind1,ind0)*invSigma*Sigma(ind0,ind1);
     Sigma21 = 0.50*(Sigma21 + Sigma21.t());
-    moments = Nmoment(lower1, upper1, mu21, Sigma21, "Normal", R_NilValue, n1, 0, 1);
+    moments = Nmoment(lower1, upper1, mu21, Sigma21, n1);
     EY(ind1) = as<arma::vec>(moments["EY"]);
     EYY(ind1,ind1) = as<arma::mat>(moments["EYY"]);
     EYY(ind1,ind0) = as<arma::vec>(moments["EY"])*(y(ind0)).t();
@@ -628,10 +625,7 @@ List MCEMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::
 // [[Rcpp::export]]
 List EMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::vec upper, arma::mat coords,
                double init_phi, double init_tau, arma::vec lowerp, arma::vec upperp, String type,
-               double kappa, arma::uword Maxiter, double tol, bool infM){
-  Environment pkg = Environment::namespace_env("MomTrunc");
-  Function mvTnorm = pkg["meanvarTMD"];
-
+               double kappa, arma::uword Maxiter, double tol, bool infM, Function mvTnorm){
   Progress time(Maxiter, true);
   arma::uword p = y.size();
   arma::uword q = X.n_cols;
@@ -683,7 +677,7 @@ List EMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::ve
     invSigma = (Sigma(ind0,ind0)).i();
     mu21 = media(ind1) + Sigma(ind1,ind0)*invSigma*(y(ind0) - media(ind0));
     Sigma21 = Sigma(ind1,ind1) - Sigma(ind1,ind0)*invSigma*Sigma(ind0,ind1);
-    moments = mvTnorm(lower1, upper1, mu21, Sigma21, R_NilValue, R_NilValue, R_NilValue, R_NilValue, "normal");
+    moments = mvTnorm(lower1, upper1, mu21, Sigma21);
     EY(ind1) = as<arma::vec>(moments["mean"]);
     EYY(ind1,ind1) = as<arma::mat>(moments["EYY"]);
     EYY(ind1,ind0) = as<arma::vec>(moments["mean"])*(y(ind0)).t();

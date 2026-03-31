@@ -16,12 +16,12 @@ An \eqn{n\times n} distance matrix.
 It computes the Euclidean distance matrix for a set of coordinates.
 }
 \examples{
-n = 100
 set.seed(1000)
+n = 100
 x = round(runif(n,0,10), 5)     # X coordinate
 y = round(runif(n,0,10), 5)     # Y coordinate
 Mdist = dist2Dmatrix(cbind(x, y))
 }
 \author{
-Katherine L. Valeriano, Alejandro Ordoñez, Christian E. Galarza, and Larissa A. Matos.
+Katherine L. Valeriano, Christian E. Galarza, and Larissa A. Matos.
 }

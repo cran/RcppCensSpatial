@@ -52,9 +52,9 @@ If unspecified, the default is \code{c(0.01,0.01)} for lower and \code{c(30,30)}
 should be estimated by default \code{=TRUE}.}
 }
 \value{
-An object of class "sclm". Generic functions \code{print} and \code{summary}
-have methods to show the results of the fit. The function \code{plot} can extract
-convergence graphs for the parameter estimates.
+An object of class "sclm". Generic functions \code{print} and \code{summary} are
+available to display the fitted results. The \code{plot} method can be used to visualize
+convergence diagnostics of the parameter estimates.
 
 Specifically, the following components are returned:
 \item{Theta}{estimated parameters in all iterations, \eqn{\theta = (\beta, \sigma^2, \phi, \tau^2)}.}
@@ -80,9 +80,9 @@ Specifically, the following components are returned:
 \item{MaxIter}{maximum number of iterations for the MCEM algorithm.}
 }
 \description{
-It fits the left, right, or interval spatial censored linear model using the Monte
-Carlo EM (MCEM) algorithm. It provides estimates and standard errors of the
-parameters and supports missing values on the dependent variable.
+It fits a spatial linear model with left-, right-, or interval-censored responses
+using the Monte Carlo EM (MCEM) algorithm. The function provides parameter
+estimates and their standard errors, and supports missing values in the response variable.
 }
 \details{
 The spatial Gaussian model is given by
@@ -91,15 +91,16 @@ The spatial Gaussian model is given by
 
 where \eqn{Y} is the \eqn{n\times 1} response vector, \eqn{X} is the \eqn{n\times q}
 design matrix, \eqn{\beta} is the \eqn{q\times 1} vector of regression coefficients
-to be estimated, and \eqn{\xi} is the error term. Which is normally distributed with
+to be estimated, and \eqn{\xi} is the error term, assumed to follow a normal distribution with
 zero-mean and covariance matrix \eqn{\Sigma=\sigma^2 R(\phi) + \tau^2 I_n}. We assume
-that \eqn{\Sigma} is non-singular and \eqn{X} has a full rank \insertCite{diggle2007springer}{RcppCensSpatial}.
+that \eqn{\Sigma} is non-singular and that \eqn{X} has a full rank \insertCite{diggle2007springer}{RcppCensSpatial}.
 
-The estimation process is performed via the MCEM algorithm, initially proposed by
-\insertCite{wei1990monte;textual}{RcppCensSpatial}. The Monte Carlo (MC) approximation starts
-with a sample of size \code{nMin}; at each iteration, the sample size increases (\code{nMax-nMin})/\code{MaxIter},
-and at the last iteration, the sample size is \code{nMax}. The random observations are sampled through the slice
-sampling algorithm available in package \code{relliptical}.
+Parameter estimation is carried out using the MCEM algorithm, originally proposed by
+\insertCite{wei1990monte;textual}{RcppCensSpatial}. The Monte Carlo (MC) approximation
+starts with a sample of size \code{nMin}. At each iteration, the sample size increases by
+\eqn{(nMax - nMin) / MaxIter}, reaching \code{nMax} at the final iteration. The random
+samples are generated using the slice sampling algorithm implemented in the
+\code{relliptical} package.
 }
 \note{
 The MCEM final estimates correspond to the mean of the estimates obtained at each
@@ -141,5 +142,5 @@ plot(fit1)}
 \code{\link{EM.sclm}}, \code{\link{SAEM.sclm}}, \code{\link{predict.sclm}}
 }
 \author{
-Katherine L. Valeriano, Alejandro Ordoñez, Christian E. Galarza, and Larissa A. Matos.
+Katherine L. Valeriano, Christian E. Galarza, and Larissa A. Matos.
 }

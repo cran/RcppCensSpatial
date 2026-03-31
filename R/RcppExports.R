@@ -13,12 +13,12 @@ Spatial_model <- function(y, X, coords, init_phi, init_tau, lowerp, upperp, type
     .Call(`_RcppCensSpatial_Spatial_model`, y, X, coords, init_phi, init_tau, lowerp, upperp, type, kappa, Maxiter, tol, infM)
 }
 
-MCEMspatial <- function(y, X, cc, lower, upper, coords, init_phi, init_tau, lowerp, upperp, type, kappa, Maxiter, nMin, nMax, tol, infM) {
-    .Call(`_RcppCensSpatial_MCEMspatial`, y, X, cc, lower, upper, coords, init_phi, init_tau, lowerp, upperp, type, kappa, Maxiter, nMin, nMax, tol, infM)
+MCEMspatial <- function(y, X, cc, lower, upper, coords, init_phi, init_tau, lowerp, upperp, type, kappa, Maxiter, nMin, nMax, tol, infM, Nmoment) {
+    .Call(`_RcppCensSpatial_MCEMspatial`, y, X, cc, lower, upper, coords, init_phi, init_tau, lowerp, upperp, type, kappa, Maxiter, nMin, nMax, tol, infM, Nmoment)
 }
 
-EMspatial <- function(y, X, cc, lower, upper, coords, init_phi, init_tau, lowerp, upperp, type, kappa, Maxiter, tol, infM) {
-    .Call(`_RcppCensSpatial_EMspatial`, y, X, cc, lower, upper, coords, init_phi, init_tau, lowerp, upperp, type, kappa, Maxiter, tol, infM)
+EMspatial <- function(y, X, cc, lower, upper, coords, init_phi, init_tau, lowerp, upperp, type, kappa, Maxiter, tol, infM, mvTnorm) {
+    .Call(`_RcppCensSpatial_EMspatial`, y, X, cc, lower, upper, coords, init_phi, init_tau, lowerp, upperp, type, kappa, Maxiter, tol, infM, mvTnorm)
 }
 
 SAEMspatial <- function(y, X, cc, lower, upper, coords, init_phi, init_tau, lowerp, upperp, type, kappa, Maxiter, pc, m, tol, infM) {

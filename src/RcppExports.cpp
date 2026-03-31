@@ -61,8 +61,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // MCEMspatial
-List MCEMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::vec upper, arma::mat coords, double init_phi, double init_tau, arma::vec lowerp, arma::vec upperp, String type, double kappa, arma::uword Maxiter, arma::uword nMin, arma::uword nMax, double tol, bool infM);
-RcppExport SEXP _RcppCensSpatial_MCEMspatial(SEXP ySEXP, SEXP XSEXP, SEXP ccSEXP, SEXP lowerSEXP, SEXP upperSEXP, SEXP coordsSEXP, SEXP init_phiSEXP, SEXP init_tauSEXP, SEXP lowerpSEXP, SEXP upperpSEXP, SEXP typeSEXP, SEXP kappaSEXP, SEXP MaxiterSEXP, SEXP nMinSEXP, SEXP nMaxSEXP, SEXP tolSEXP, SEXP infMSEXP) {
+List MCEMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::vec upper, arma::mat coords, double init_phi, double init_tau, arma::vec lowerp, arma::vec upperp, String type, double kappa, arma::uword Maxiter, arma::uword nMin, arma::uword nMax, double tol, bool infM, Function Nmoment);
+RcppExport SEXP _RcppCensSpatial_MCEMspatial(SEXP ySEXP, SEXP XSEXP, SEXP ccSEXP, SEXP lowerSEXP, SEXP upperSEXP, SEXP coordsSEXP, SEXP init_phiSEXP, SEXP init_tauSEXP, SEXP lowerpSEXP, SEXP upperpSEXP, SEXP typeSEXP, SEXP kappaSEXP, SEXP MaxiterSEXP, SEXP nMinSEXP, SEXP nMaxSEXP, SEXP tolSEXP, SEXP infMSEXP, SEXP NmomentSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -83,13 +83,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::uword >::type nMax(nMaxSEXP);
     Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
     Rcpp::traits::input_parameter< bool >::type infM(infMSEXP);
-    rcpp_result_gen = Rcpp::wrap(MCEMspatial(y, X, cc, lower, upper, coords, init_phi, init_tau, lowerp, upperp, type, kappa, Maxiter, nMin, nMax, tol, infM));
+    Rcpp::traits::input_parameter< Function >::type Nmoment(NmomentSEXP);
+    rcpp_result_gen = Rcpp::wrap(MCEMspatial(y, X, cc, lower, upper, coords, init_phi, init_tau, lowerp, upperp, type, kappa, Maxiter, nMin, nMax, tol, infM, Nmoment));
     return rcpp_result_gen;
 END_RCPP
 }
 // EMspatial
-List EMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::vec upper, arma::mat coords, double init_phi, double init_tau, arma::vec lowerp, arma::vec upperp, String type, double kappa, arma::uword Maxiter, double tol, bool infM);
-RcppExport SEXP _RcppCensSpatial_EMspatial(SEXP ySEXP, SEXP XSEXP, SEXP ccSEXP, SEXP lowerSEXP, SEXP upperSEXP, SEXP coordsSEXP, SEXP init_phiSEXP, SEXP init_tauSEXP, SEXP lowerpSEXP, SEXP upperpSEXP, SEXP typeSEXP, SEXP kappaSEXP, SEXP MaxiterSEXP, SEXP tolSEXP, SEXP infMSEXP) {
+List EMspatial(arma::vec y, arma::mat X, arma::vec cc, arma::vec lower, arma::vec upper, arma::mat coords, double init_phi, double init_tau, arma::vec lowerp, arma::vec upperp, String type, double kappa, arma::uword Maxiter, double tol, bool infM, Function mvTnorm);
+RcppExport SEXP _RcppCensSpatial_EMspatial(SEXP ySEXP, SEXP XSEXP, SEXP ccSEXP, SEXP lowerSEXP, SEXP upperSEXP, SEXP coordsSEXP, SEXP init_phiSEXP, SEXP init_tauSEXP, SEXP lowerpSEXP, SEXP upperpSEXP, SEXP typeSEXP, SEXP kappaSEXP, SEXP MaxiterSEXP, SEXP tolSEXP, SEXP infMSEXP, SEXP mvTnormSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -108,7 +109,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::uword >::type Maxiter(MaxiterSEXP);
     Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
     Rcpp::traits::input_parameter< bool >::type infM(infMSEXP);
-    rcpp_result_gen = Rcpp::wrap(EMspatial(y, X, cc, lower, upper, coords, init_phi, init_tau, lowerp, upperp, type, kappa, Maxiter, tol, infM));
+    Rcpp::traits::input_parameter< Function >::type mvTnorm(mvTnormSEXP);
+    rcpp_result_gen = Rcpp::wrap(EMspatial(y, X, cc, lower, upper, coords, init_phi, init_tau, lowerp, upperp, type, kappa, Maxiter, tol, infM, mvTnorm));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -144,8 +146,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_RcppCensSpatial_crossdist", (DL_FUNC) &_RcppCensSpatial_crossdist, 1},
     {"_RcppCensSpatial_varianceMat", (DL_FUNC) &_RcppCensSpatial_varianceMat, 6},
     {"_RcppCensSpatial_Spatial_model", (DL_FUNC) &_RcppCensSpatial_Spatial_model, 12},
-    {"_RcppCensSpatial_MCEMspatial", (DL_FUNC) &_RcppCensSpatial_MCEMspatial, 17},
-    {"_RcppCensSpatial_EMspatial", (DL_FUNC) &_RcppCensSpatial_EMspatial, 15},
+    {"_RcppCensSpatial_MCEMspatial", (DL_FUNC) &_RcppCensSpatial_MCEMspatial, 18},
+    {"_RcppCensSpatial_EMspatial", (DL_FUNC) &_RcppCensSpatial_EMspatial, 16},
     {"_RcppCensSpatial_SAEMspatial", (DL_FUNC) &_RcppCensSpatial_SAEMspatial, 17},
     {NULL, NULL, 0}
 };

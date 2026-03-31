@@ -51,11 +51,11 @@ If \code{npred > 0}, it returns two lists: \code{Data} and
 \item{x}{design matrix.}
 }
 \description{
-It simulates censored spatial data with a linear structure for an established censoring rate.
+It simulates censored spatial data under a linear model for a specified censoring rate.
 }
 \examples{
-n = 100
 set.seed(1000)
+n = 100
 coords = round(matrix(runif(2*n,0,15),n,2), 5)
 x = cbind(1, rnorm(n))
 data = rCensSp(beta=c(5,2), sigma2=2, phi=4, nugget=0.70, x=x,
@@ -65,5 +65,5 @@ data$Data
 data$TestData
 }
 \author{
-Katherine L. Valeriano, Alejandro Ordoñez, Christian E. Galarza, and Larissa A. Matos.
+Katherine L. Valeriano, Christian E. Galarza, and Larissa A. Matos.
 }

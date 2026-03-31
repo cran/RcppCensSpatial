@@ -1,3 +1,8 @@
+Nmoment = function(lower, upper=rep(Inf, length(lower)), mu=rep(0,length(lower)),
+                   Sigma=diag(length(lower)), n=10000){
+  momentos = mvtelliptical(lower, upper, mu, Sigma, dist="Normal", nu=NULL, n=n, burn.in=0, thinning=1)
+  return(momentos)
+}
 
 # Estimate parameters using MCEM algorithm
 # -----------------------------------------------------------------------------
@@ -12,7 +17,7 @@ MCEM_Spatial = function(y, x, cens, LI, LS, coords, init.phi, init.nugget, type.
   } else {
     t1 = Sys.time()
     output = MCEMspatial(y, x, cens, LI, LS, coords, init.phi, init.nugget, lower, upper, type.sc, kappa,
-                        MaxIter, nMin, nMax, tol, show.SE)
+                        MaxIter, nMin, nMax, tol, show.SE, Nmoment)
     t2 = Sys.time()
     ptime = t2 - t1
   }
@@ -69,6 +74,12 @@ SAEM_Spatial = function(y, x, cens, LI, LS, coords, init.phi, init.nugget, type.
 
 # Estimate parameters using EM algorithm
 # -----------------------------------------------------------------------------
+mvTnorm = function(lower=rep(-Inf,length(mu)), upper=rep(Inf,length(mu)), mu, Sigma){
+  momentos = meanvarTMD(lower, upper, mu, Sigma, lambda=NULL, tau=NULL, Gamma=NULL,
+                        nu=NULL, dist="normal")
+  return(momentos)
+}
+
 EM_Spatial = function(y, x, cens, LI, LS, coords, init.phi, init.nugget, type.sc, kappa,
                       lower, upper, MaxIter, tol, show.SE){
   if (sum(cens)==0) {
@@ -79,7 +90,7 @@ EM_Spatial = function(y, x, cens, LI, LS, coords, init.phi, init.nugget, type.sc
 
   } else {
     t1 = Sys.time()
-    output = EMspatial(y, x, cens, LI, LS, coords, init.phi, init.nugget, lower, upper, type.sc, kappa, MaxIter, tol, show.SE)
+    output = EMspatial(y, x, cens, LI, LS, coords, init.phi, init.nugget, lower, upper, type.sc, kappa, MaxIter, tol, show.SE, mvTnorm)
     t2 = Sys.time()
     ptime = t2 - t1
   }
@@ -124,7 +135,7 @@ log_likelihood = function(y, cc, lower, upper, x, beta, sigma2, phi, tau2, coord
 
 # Convergence plot
 # -----------------------------------------------------------------------------
-plot.convergence = function(model){
+plt.convergence = function(model){
   Theta = model$Theta
   X = model$X
   q = length(model$beta)
@@ -146,7 +157,7 @@ plot.convergence = function(model){
 
 # Prediction in new locations
 # -----------------------------------------------------------------------------
-predict.new = function(model, x.new, coord.new){
+predecir.new = function(model, x.new, coord.new){
   mediaO = model$X%*%model$beta
   mediaP = x.new%*%model$beta
   coordAll = rbind(model$coord, coord.new)

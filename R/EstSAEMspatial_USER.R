@@ -1,8 +1,9 @@
 #' ML estimation of spatial censored linear models via the SAEM algorithm
 #'
-#' It fits the left, right, or interval spatial censored linear model using the
-#' Stochastic Approximation EM (SAEM) algorithm. It provides estimates and standard
-#' errors of the parameters and supports missing values on the dependent variable.
+#' It fits a spatial linear model with left-, right-, or interval-censored responses
+#' using the Stochastic Approximation EM (SAEM) algorithm. The function provides
+#' parameter estimates and their standard errors, and supports missing values in the
+#' response variable.
 #'
 #' @param y vector of responses of length \eqn{n}.
 #' @param x design matrix of dimensions \eqn{n\times q}, where \eqn{q} is the number
@@ -38,29 +39,30 @@
 #'
 #' where \eqn{Y} is the \eqn{n\times 1} response vector, \eqn{X} is the \eqn{n\times q}
 #' design matrix, \eqn{\beta} is the \eqn{q\times 1} vector of regression coefficients
-#' to be estimated, and \eqn{\xi} is the error term which is normally distributed with
+#' to be estimated, and \eqn{\xi} is the error term, assumed to follow a normal distribution with
 #' zero-mean and covariance matrix \eqn{\Sigma=\sigma^2 R(\phi) + \tau^2 I_n}. We assume
-#' that \eqn{\Sigma} is non-singular and \eqn{X} has full rank \insertCite{diggle2007springer}{RcppCensSpatial}.
+#' that \eqn{\Sigma} is non-singular and that \eqn{X} has a full rank \insertCite{diggle2007springer}{RcppCensSpatial}.
 #'
-#' The estimation process is performed via the SAEM algorithm, initially proposed by
-#' \insertCite{delyon1999convergence;textual}{RcppCensSpatial}. The spatial censored
-#' (SAEM) algorithm was previously proposed by \insertCite{lachos2017influence;textual}{RcppCensSpatial} and
-#' \insertCite{ordonez2018geostatistical;textual}{RcppCensSpatial} and is available in the package \code{CensSpatial}.
-#' These packages differ in the random number generation and optimization procedure.
+#' Parameter estimation is carried out using the SAEM algorithm, originally proposed by
+#' \insertCite{delyon1999convergence;textual}{RcppCensSpatial}. The spatial censored SAEM
+#' approach has been previously developed by \insertCite{lachos2017influence;textual}{RcppCensSpatial}
+#' and \insertCite{ordonez2018geostatistical;textual}{RcppCensSpatial}, and is implemented in the
+#' \code{CensSpatial} package. Differences among implementations mainly arise from the
+#' random number generation schemes and optimization procedures.
 #'
-#' This model is also a particular case of the spatio-temporal model defined by
-#' \insertCite{valeriano2021likelihood;textual}{RcppCensSpatial} when the number of
-#' temporal observations is equal to one. The computing codes of the spatio-temporal
-#' SAEM algorithm are available in the package \code{StempCens}.
+#' This model can also be viewed as a particular case of the spatio-temporal model proposed by
+#' \insertCite{valeriano2021likelihood;textual}{RcppCensSpatial}, when the number of temporal
+#' observations is equal to one. The corresponding SAEM implementation for the spatio-temporal
+#' setting is available in the \code{StempCens} package.
 #'
 #' @note The SAEM final estimates correspond to the estimates obtained at the last iteration
 #' of the algorithm.
 #'
 #' To fit a regression model for non-censored data, just set \code{ci} as a vector of zeros.
 #'
-#' @return An object of class "sclm". Generic functions \code{print} and \code{summary} have
-#' methods to show the results of the fit. The function \code{plot} can extract
-#' convergence graphs for the parameter estimates.
+#' @return An object of class "sclm". Generic functions \code{print} and \code{summary} are
+#' available to display the fitted results. The \code{plot} method can be used to visualize
+#' convergence diagnostics of the parameter estimates.
 #'
 #' Specifically, the following components are returned:
 #' \item{Theta}{estimated parameters in all iterations, \eqn{\theta = (\beta, \sigma^2, \phi, \tau^2)}.}
@@ -85,7 +87,7 @@
 #' \item{ncens}{number of censored/missing observations.}
 #' \item{MaxIter}{maximum number of iterations for the SAEM algorithm.}
 #'
-#' @author Katherine L. Valeriano, Alejandro Ordoñez, Christian E. Galarza, and Larissa A. Matos.
+#' @author Katherine L. Valeriano, Christian E. Galarza, and Larissa A. Matos.
 #'
 #' @seealso \code{\link{EM.sclm}}, \code{\link{MCEM.sclm}}, \code{\link{predict.sclm}}
 #'

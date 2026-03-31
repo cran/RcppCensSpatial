@@ -6,48 +6,47 @@
 <!-- badges: start -->
 <!-- badges: end -->
 
-The `RcppCensSpatial` package fits a spatial censored linear regression
-model using the Expectation-Maximization (EM) (Dempster, Laird, and
+The `RcppCensSpatial` package fits spatial censored linear regression
+models using the Expectation-Maximization (EM) (Dempster, Laird, and
 Rubin 1977), Stochastic Approximation EM (SAEM) (Delyon, Lavielle, and
 Moulines 1999), or Monte Carlo EM (MCEM) (Wei and Tanner 1990)
-algorithm. These algorithms are widely used to compute the maximum
-likelihood (ML) estimates for incomplete data problems. The EM algorithm
-computes the ML estimates when a closed expression for the conditional
-expectation of the complete-data log-likelihood function is available.
-In the MCEM algorithm, the conditional expectation is substituted by a
-Monte Carlo approximation based on many independent simulations of the
-partially observed data. In contrast, the SAEM algorithm splits the
-E-step into simulation and integration steps.
+algorithm. These algorithms are widely used to obtain maximum likelihood
+(ML) estimates in the presence of incomplete data. The EM algorithm can
+be applied when a closed-form expression for the conditional expectation
+of the complete-data log-likelihood is available. In the MCEM algorithm,
+this conditional expectation is replaced by a Monte Carlo approximation
+based on multiple independent simulations of the partially observed
+data. In contrast, the SAEM algorithm decomposes the E-step into
+simulation and stochastic approximation steps.
 
-This package also approximates the standard error of the estimates using
-the method developed by Louis (1982) and supports missing values on the
-dependent variable. Moreover, it has a function that performs spatial
-prediction in new locations. It also allows computing the covariance
-matrix and the distance matrix. For more information about the model
-formulation and estimation, please see Ordoñez et al. (2018) and
+The package also provides approximate standard errors for the parameter
+estimates using the method proposed by Louis (1982), and it supports
+missing values in the response variable. In addition, it includes
+functions for spatial prediction at new locations, as well as for
+computing covariance and distance matrices. For further details on model
+formulation and estimation procedures, see Ordoñez et al. (2018) and
 Valeriano et al. (2021).
 
 The `RcppCensSpatial` library provides the following functions:
 
--   `CovMat`: computes the spatial covariance matrix.
--   `dist2Dmatrix`: computes the Euclidean distance matrix for a set of
-    coordinates.
--   `EM.sclm`: fits a spatial censored linear regression model via the
-    EM algorithm.
--   `MCEM.sclm`: fits a spatial censored linear regression model via the
-    MCEM algorithm.
--   `SAEM.sclm`: fits a spatial censored linear regression model via the
-    SAEM algorithm.
--   `predict.sclm`: performs spatial prediction in a set of new
-    locations.
--   `rCensSp`: simulates censored spatial data for an established
-    censoring rate.
+- `CovMat`: computes the spatial covariance matrix.
+- `dist2Dmatrix`: computes the Euclidean distance matrix for a set of
+  coordinates.
+- `EM.sclm`: fits a spatial censored linear regression model using the
+  EM algorithm.
+- `MCEM.sclm`: fits a spatial censored linear regression model using the
+  MCEM algorithm.
+- `SAEM.sclm`: fits a spatial censored linear regression model using the
+  SAEM algorithm.
+- `predict.sclm`: performs spatial prediction at a set of new locations.
+- `rCensSp`: simulates censored spatial data under a specified censoring
+  rate.
 
-`print`, `summary`, `predict`, and `plot` functions also work for the
-`sclm` class.
+The generic functions `print`, `summary`, `predict`, and `plot` are also
+available for objects of class `sclm`.
 
-Next, we will describe how to install the package and use all the
-previous methods in an artificial example.
+In the following sections, we describe how to install the package and
+demonstrate the use of its main functions through an artificial example.
 
 ### Installation
 
@@ -60,13 +59,13 @@ install.packages("RcppCensSpatial")
 
 ### Example
 
-In the following example, we simulate a dataset of length n = 220 from
-the spatial linear regression model considering three covariates and the
-exponential correlation function to deal with the variation between
-spatial points. In order to evaluate the prediction accuracy, the
-dataset is train-test split. The training data consists of 200
-observations, with 5% censored to the left, while the testing data
-contains 20 observations.
+In the following example, we simulate a dataset of size n = 220 from a
+spatial linear regression model with three covariates and an exponential
+correlation function to account for spatial dependence. To evaluate
+predictive performance, the dataset is split into training and testing
+sets. The training set consists of 200 observations, with 5%
+left-censored responses, while the test set contains the remaining 20
+observations.
 
 ``` r
 library(RcppCensSpatial)
@@ -84,12 +83,14 @@ table(dat$Data$ci)
 #> 190  10
 ```
 
-For comparison purposes, we fit the spatial censored linear model for
-the simulated data using three approaches: EM, MCEM, and SAEM algorithm.
-Each method considers the same maximum number of iterations
-`MaxIter=300`, and the spatial correlation function used in the
-simulation process, i.e., `type='exponential'`, the default value. Other
-types of spatial correlation functions available are `'matern'`,
+For comparison purposes, we fit the spatial censored linear model to the
+simulated data using three approaches: the EM, MCEM, and SAEM
+algorithms. Each method is run with the same maximum number of
+iterations (`MaxIter = 300`) and uses the exponential spatial
+correlation function (`type = "exponential"`), which is also the default
+setting and was used in the data generation process.
+
+Other available spatial correlation functions include `'matern'`,
 `'gaussian'`, and `'pow.exp'`.
 
 ``` r
@@ -120,15 +121,15 @@ fit3$tab
 #> s.e. 0.4865 0.2021  0.0590 0.5096 2.3125 0.0791
 ```
 
-Note that the estimates obtained for each parameter are similar and
-close to the true parameter value, except for the first regression
-coefficient, which was estimated close to 0.70, while the true value was
-equal to 1.
+Note that the parameter estimates obtained from each method are similar
+and generally close to the true values, except for the first regression
+coefficient, which is estimated to be approximately 0.70, whereas its
+true value is 1.
 
-Moreover, generic functions `print` and `summary` return some results of
-the fit for the `sclm` class, such as the estimated parameters, standard
-errors, the effective range, the information criteria, and some
-convergence details.
+Moreover, the generic functions `print` and `summary` provide detailed
+information about the fitted `sclm` object, including parameter
+estimates, standard errors, the effective range, information criteria,
+and convergence diagnostics.
 
 ``` r
 print(fit3)
@@ -155,20 +156,20 @@ print(fit3)
 #> Number of censored/missing values: 10 
 #> Convergence reached?: TRUE 
 #> Iterations: 161 / 300 
-#> Processing time: 37.2335 secs
+#> Processing time: 1.0391 mins
 ```
 
-On the other hand, the function `plot` provides convergence graphics for
-the parameters.
+Additionally, the `plot` function can be used to visualize convergence
+diagnostics of the parameter estimates.
 
 ``` r
 plot(fit3)
 ```
 
-<img src="man/figures/README-example4-1.png" width="65%" style="display: block; margin: auto;" />
+<img src="man/figures/README-example4-1.png" alt="" width="65%" style="display: block; margin: auto;" />
 
-Now, we compute the predicted values for each fitted model for the
-testing data and compare the mean squared prediction error (MSPE).
+Next, predicted values are obtained for each fitted model on the test
+data, and their mean squared prediction errors (MSPE) are compared.
 
 ``` r
 data2 = dat$TestData

@@ -1,8 +1,8 @@
 #' ML estimation of spatial censored linear models via the EM algorithm
 #'
-#' It fits the left, right, or interval spatial censored linear model using the
-#' Expectation-Maximization (EM) algorithm. It provides estimates and standard errors
-#' of the parameters and supports missing values on the dependent variable.
+#' It fits a spatial linear model with left-, right-, or interval-censored responses
+#' using the Expectation-Maximization (EM) algorithm. The function provides parameter
+#' estimates and their standard errors, and supports missing values in the response variable.
 #'
 #' @param y vector of responses of length \eqn{n}.
 #' @param x design matrix of dimensions \eqn{n\times q}, where \eqn{q} is the number
@@ -35,23 +35,23 @@
 #'
 #' where \eqn{Y} is the \eqn{n\times 1} response vector, \eqn{X} is the \eqn{n\times q}
 #' design matrix, \eqn{\beta} is the \eqn{q\times 1} vector of regression coefficients
-#' to be estimated, and \eqn{\xi} is the error term. Which is normally distributed with
+#' to be estimated, and \eqn{\xi} is the error term, assumed to follow a normal distribution with
 #' zero-mean and covariance matrix \eqn{\Sigma=\sigma^2 R(\phi) + \tau^2 I_n}. We assume
-#' that \eqn{\Sigma} is non-singular and \eqn{X} has a full rank \insertCite{diggle2007springer}{RcppCensSpatial}.
+#' that \eqn{\Sigma} is non-singular and that \eqn{X} has a full rank \insertCite{diggle2007springer}{RcppCensSpatial}.
 #'
-#' The estimation process is performed via the EM algorithm, initially proposed by
+#' The estimation is carried out using the EM algorithm, originally proposed by
 #' \insertCite{dempster1977maximum;textual}{RcppCensSpatial}. The conditional
-#' expectations are computed using the function \code{meanvarTMD} available in the
+#' expectations required in the E-step are computed using the function \code{meanvarTMD} from the
 #' package \code{MomTrunc}.
 #'
-#' @note The EM final estimates correspond to the estimates obtained at the last iteration
-#' of the EM algorithm.
+#' @note The final EM estimates correspond to the parameter values obtained at the last
+#' iteration of the EM algorithm.
 #'
 #' To fit a regression model for non-censored data, just set \code{ci} as a vector of zeros.
 #'
-#' @return An object of class "sclm". Generic functions \code{print} and \code{summary} have
-#' methods to show the results of the fit. The function \code{plot} can extract
-#' convergence graphs for the parameter estimates.
+#' @return An object of class "sclm". Generic functions \code{print} and \code{summary} are
+#' available to display the fitted results. The \code{plot} method can be used to visualize
+#' convergence diagnostics of the parameter estimates.
 #'
 #' Specifically, the following components are returned:
 #' \item{Theta}{estimated parameters in all iterations, \eqn{\theta = (\beta, \sigma^2, \phi, \tau^2)}.}
@@ -76,7 +76,7 @@
 #' \item{ncens}{number of censored/missing observations.}
 #' \item{MaxIter}{maximum number of iterations for the EM algorithm.}
 #'
-#' @author Katherine L. Valeriano, Alejandro Ordoñez, Christian E. Galarza, and Larissa A. Matos.
+#' @author Katherine L. Valeriano, Christian E. Galarza, and Larissa A. Matos.
 #'
 #' @seealso \code{\link{MCEM.sclm}}, \code{\link{SAEM.sclm}}, \code{\link{predict.sclm}}
 #'
